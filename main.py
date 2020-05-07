@@ -5,6 +5,10 @@ from multiReduct import MReduct
 from DealData import DealData
 from Result import Result
 
+"""
+connect-4
+"""
+
 
 def connect4_deal():
     path = "data_set/connect-4/connect-4.txt"
@@ -16,17 +20,29 @@ def connect4_deal():
     d.standard_data()
 
 
-def connect_4_split():
+def connect4_split():
     path = "data_set/connect-4/connect-4.csv"
     rate = 0.8
     attributes_num = list()
     Result(path, rate, attributes_num)
 
 
-def connect_4():
-    path = "data_set/connect-4/connect-4_train.csv"
+def connect4_reduct():
+    """
+    已经处理数据,注释前两个函数
+    :return:
+    """
+    # connect4_deal()
+    # connect4_split()
+    path = "data_set/connect-4/connect-4_train1.csv"
     r = Reduct(path)
+    print(r.decisions_data)
+    print(r.conditions_data)
 
+
+"""
+
+"""
 
 if __name__ == "__main__":
-    connect_4()
+    connect4_reduct()

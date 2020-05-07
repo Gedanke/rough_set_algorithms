@@ -28,7 +28,9 @@ class Reduct(object):
         '''约简集下标'''
         self.reduct_list = list()
         '''决策属性集'''
-        self.decisions = None
+        self.decisions_data = None
+        '''条件属性集'''
+        self.conditions_data = None
         '''初始化函数'''
         self.init_data()
 
@@ -36,9 +38,22 @@ class Reduct(object):
         """
         :return:
         """
+        """切取决策属性"""
         start_index = self.attributes_num - self.decision_num
         index = list(range(start_index, self.attributes_num))
-        self.decisions = self.data.iloc[:, index]
+        self.decisions_data = self.data.iloc[:, index]
+        """条件属性集"""
+        index = list(range(start_index))
+        self.conditions_data = self.data.iloc[:, index]
+
+    def gain_granularity(self, frame):
+        """
+        https://blog.csdn.net/Dr_Guo/article/details/89670842
+        res6_test = res6.groupby(['user_id', 'cate', 'shop_id']).size().sort_values(ascending=False)
+        获取一个 DataFrame 的知识粒度
+        :param frame:
+        :return:
+        """
 
     def gain_reduct(self):
         """

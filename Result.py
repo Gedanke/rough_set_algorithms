@@ -10,7 +10,7 @@ class Result(object):
         """
         :param path: 完全正确的csv文件绝对路径
         :param rate: 以该比例划分训练集和测试集
-        :param attributes_num: 待归一化的特征
+        :param attributes_num: 待归一化的特征,在属性约简中这个用的少
         """
         '''完全正确的csv文件绝对路径'''
         self.file_path = path

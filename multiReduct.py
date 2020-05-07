@@ -3,7 +3,7 @@ from collections import Counter
 import operator
 
 
-class mulReduct(object):
+class MReduct(object):
     rowsNum = 0  # 行数,已经除以了粒度
     listsNum = 0  # 列数
     attrTable = []  # 全信息系统，包含条件属性集和决策属性集

@@ -1,230 +1,184 @@
 # -*- coding: utf-8 -*-
-from collections import Counter
+
 import operator
+import pandas
 
 
 class MReduct(object):
-    rowsNum = 0  # 行数,已经除以了粒度
-    listsNum = 0  # 列数
-    attrTable = []  # 全信息系统，包含条件属性集和决策属性集
-    attrD = []  # 子决策属性集
-    attrB = []  # 子约简属性集
-    rule = []  # 条件属性集与约简集的差集
-    yuejian = []  # 约简集的下标
-    attrGranularity = []  # 子决策系统
-    result = []
-    remainder = 0
-
-    def __init__(self, filePath, separator=';', decisionNum=1, granularity=1, precision=[0, 1e-6, 0]):
+    def __init__(self, file_path, granularity=3, decision_num=1, precision=[0, 1e-7, 0]):
         """
         基于知识粒度的多粒度启发式约简算法
-        :param filePath: 文件路径
-        :param separator: 分割符，默认为;
-        :param decisionNum: 决策属性个数，默认为1
-        :param granularity: 粒度数目
+        :param file_path: csv文件路径
+        :param granularity: 粒度数目，默认为 3
+        :param decision_num: 决策属性个数,默认为 1
         :param precision: 算法二中三个可能的参数(精度)
         """
-        self.filePath = filePath
-        self.separator = separator
-        self.decisionNum = decisionNum
+        '''信息系统,包含条件属性集和决策属性集'''
+        self.all_data = pandas.read_csv(file_path)
+        '''粒度数'''
         self.granularity = granularity
+        '''信息系统决策属性数'''
+        self.decision_num = decision_num
+        '''算法二中三个可能的参数(精度)'''
         self.precision = precision
-        mulReduct.rowsNum = 0
-        mulReduct.listsNum = 0
-        mulReduct.attrTable = []
-        mulReduct.attrD = []
-        mulReduct.attrB = []
-        mulReduct.rule = []
-        mulReduct.yuejian = []
-        mulReduct.attrGranularity = []
-        mulReduct.result = []
-        mulReduct.remainder = 0
-        file = open(filePath, 'r')
-        lines = file.readlines()
-        for line in lines:
-            line = line.strip('\n')
-            line = line.split(separator)
-            mulReduct.attrTable.append(line)
-        self.remainder = int(len(mulReduct.attrTable) % self.granularity)
-        mulReduct.rowsNum = int(len(mulReduct.attrTable) / self.granularity)
-        mulReduct.listsNum = len(mulReduct.attrTable[0])
-        self.attrGranularity = self.attrTable
+        '''对象数'''
+        self.objects_num = None
+        '''属性名,含决策属性'''
+        self.conditions_decision_list = list(self.all_data.columns)
+        '''属性个数，含决策属性'''
+        self.attributes_num = len(self.conditions_decision_list)
+        '''条件属性名,不含决策属性'''
+        self.conditions_list = self.conditions_decision_list[0:(self.attributes_num - self.decision_num)]
+        '''约简集下标,含决策属性'''
+        self.reduct_decision_list = self.conditions_decision_list[
+                                    (self.attributes_num - self.decision_num):self.attributes_num]
+        '''约简集下标,不含决策属性'''
+        self.reduct_list = list()
+        '''汇总约简集下标'''
+        self.reduct_all_dict = dict()
+        '''约简集'''
+        self.reduct_all_list = list()
+        '''子数据集'''
+        self.data = None
 
-    def listToString(self, attr):
+    def init_data(self):
         """
-        将二维列表中的每一维的列表转化为字符串
-        :param attr: 属性，为二维列表
-        :return: 
-        返回一个一维的字符串列表
-        @attrTemp
+        初始化
+        :return:
         """
-        attrTemp = []
-        for i in range(len(attr)):
-            string = ''
-            string = string.join(attr[i])
-            attrTemp.append(string)
-        return attrTemp
+        """
+        在约简过程中,只添加属性名
+        在内部属性重要度计算过程中:
+        self.conditions_decision_list 相当于 C U D,C U D - {a}
+        self.conditions_list 相当于 C,C - {a}
+        在外部属性重要度计算过程中:
+        self.reduct_decision_list 相当于 B U D,B U D - {a}
+        self.reduct_list 相当于 B,B - {a}
+        """
+        '''一次约简过程中,发生改变的成员是
+        self.reduct_decision_list = list()
+        self.reduct_list = list()
+        还原 self.reduct_list, self.reduct_decision_list '''
+        self.reduct_list = list()
+        index = self.attributes_num - self.decision_num
+        self.reduct_decision_list = self.conditions_decision_list[index:self.attributes_num]
 
-    def gainKonwledge(self, attr):
+    def gain_granularity(self, subscript):
         """
-        求知识粒度
-        :param attr: 传入的参数是二维列表
-        :return: 
-        返回知识粒度
-        @divide / float(self.rowsNum * self.rowsNum)
+        https://blog.csdn.net/Dr_Guo/article/details/89670842
+        获取一个 subscript 下标绝对的 DataFrame 的知识粒度
+        :param subscript: 下标
+        :return:
         """
-        divide = 0
-        attrString = self.listToString(attr)  # 调用list_to_string,将二维列表转化维一维列表
-        count = Counter(attrString)  # 类型： <class 'collections.Counter'>
-        countDict = dict(count)  # 类型： <type 'dict'>
-        for key in countDict:
-            divide += countDict.get(key) * countDict.get(key)
-        return divide / float(self.rowsNum * self.rowsNum)
+        '''<class 'pandas.core.series.Series'>'''
+        if len(subscript) == 0:
+            return 0
+        index = self.data.groupby(subscript).size()
+        '''等价类内元素个数的列表,对其每个元素求平方后得到分子'''
+        list_index = list(index)
+        '''分子是各个等价类内元素的个数平方和,分母则是集合元素个数的平方'''
+        molecule = sum(list(map(lambda num: num * num, list_index)))
+        denominator = pow(self.objects_num, 2)
+        return float(molecule / denominator)
 
-    def gainCondiction(self):
-        """
-        得到条件属性
-        :return: 
-        返回的是含条件属性的二维列表
-        @attrC
-        """
-        attrC = []
-        for i in range(self.rowsNum):
-            attrC.append(self.attrGranularity[i][0:self.listsNum - self.decisionNum])
-        return attrC
-
-    def gainReduct(self):
+    def gain_reduct(self):
         """
         属性约简过程
-        :return: NULL
-        """
-        '''选择核属性'''
-        for i in range(1, self.listsNum - self.decisionNum + 1):
-            self.rule.append(i)
-        attrC = self.gainCondiction()
-        sub = self.gainKonwledge(attrC) - self.gainKonwledge(self.attrGranularity)
-        for j in range(1, self.listsNum - self.decisionNum + 1):
-            result = (self.gainInner(attrC, j) - self.gainInner(self.attrGranularity, j)) - sub
-            if result > self.precision[0]:
-                self.yuejian.append(j)  # 选择核属性
-        '''根据下标求得约简集'''
-        for i in range(self.rowsNum):
-            attrBTemp = [self.attrGranularity[i][j - 1] for j in self.yuejian]
-            self.attrB.append(attrBTemp)
-        attrBD = self.gainBandD()
-        '''求c-b的差集下标'''
-        for i in self.yuejian:
-            self.rule.remove(i)
-        '''在c-b中选择外部重要度大的元素往约简集中添加'''
-        while abs((self.gainKonwledge(self.attrB) - self.gainKonwledge(attrBD)) - sub) >= self.precision[1]:
-            maxSigOuter = {}
-            for i in self.rule:  # C-B的差集下标
-                preOuter = self.gainKonwledge(self.attrB) - self.gainKonwledge(attrBD)
-                nextOuter = self.gainOuter(self.attrB, i) - self.gainOuter(attrBD, i)
-                aResult = preOuter - nextOuter
-                maxSigOuter[i] = aResult
-            maxSigOuter = sorted(maxSigOuter.items(), key=operator.itemgetter(1), reverse=True)
-            a0 = maxSigOuter[0][0]
-            self.yuejian.append(a0)
-            self.rule.remove(a0)
-            self.gainBanda0(a0)
-            attrBD = self.gainBandD()
-
-        '''去冗余'''
-        for i in self.yuejian:
-            if abs(self.gainInner(self.attrB, i) - self.gainInner(attrBD, i) - sub) <= self.precision[2]:
-                self.gainBsubai(i)
-                attrBD = self.gainBandD()
-                self.yuejian.remove(i)
-
-    def gainInner(self, attr, j):
-        """
-        计算((C条件属性-j)或者(C条件属性和D决策属性-j)),取决于attr
-        :param attr: 属性集
-        :param j: 第j个特征(属性)
-        :return: 
-        返回知识粒度
-        @self.gainKonwledge(attrTemp)
-        """
-        attrTemp = []
-        length = len(attr[0])
-        for i in range(self.rowsNum):
-            '''下标为j-1的元素被去除,即第j个元素'''
-            attrTemp.append(attr[i][0:j - 1] + attr[i][j:length])
-        return self.gainKonwledge(attrTemp)
-
-    def gainBandD(self):
-        """
-        求约简集和决策属性的并集
         :return:
-        返回并集
-        @attrBD
         """
-        attrBD = []
-        for i in range(self.rowsNum):
-            if len(self.attrB) == 0:
-                attrBD.append((self.attrD[i]))
-            else:
-                attrBD.append(self.attrB[i] + (self.attrD[i]))
-        return attrBD
+        """第一部分"""
+        sub = self.gain_granularity(self.conditions_list) - self.gain_granularity(self.conditions_decision_list)
+        '''遍历所有条件属性'''
+        for a_j in self.conditions_list:
+            '''此处可优化,暂时用该法,使用深拷贝的方式'''
+            conditions_sub_aj = self.conditions_list[:]
+            conditions_decision_sub_aj = self.conditions_decision_list[:]
+            '''深拷贝后,从得到的副本上去除该条件属性'''
+            conditions_sub_aj.remove(a_j)
+            conditions_decision_sub_aj.remove(a_j)
+            '''内部属性重要度'''
+            result = self.gain_granularity(conditions_sub_aj) - self.gain_granularity(conditions_decision_sub_aj) - sub
+            '''内部属性重要度值大于某一值认为其大于0'''
+            if result > self.precision[0]:
+                '''该元素加入约简集(不含决策属性)'''
+                self.reduct_list.append(a_j)
+                '''该元素加入约简集(含决策属性)'''
+                self.reduct_decision_list.append(a_j)
+        """第一部分"""
+        """第二部分"""
+        rules = self.conditions_list[:]
+        '''求 C - B '''
+        for a in self.reduct_list:
+            rules.remove(a)
+        '''差值大于某一值认为两者不相等'''
+        while abs(self.gain_granularity(self.reduct_list) - self.gain_granularity(self.reduct_decision_list) - sub) >= \
+                self.precision[1]:
+            max_sig_outer = dict()
+            for a_i in rules:
+                pre_outer = self.gain_granularity(self.reduct_list) - self.gain_granularity(self.reduct_decision_list)
+                '''使用深拷贝的方式'''
+                reduct_add_ai = self.reduct_list[:]
+                reduct_decision_add_ai = self.reduct_decision_list[:]
+                '''深拷贝后,从得到的副本上增加该条件属性'''
+                reduct_add_ai.append(a_i)
+                reduct_decision_add_ai.append(a_i)
+                '''外部属性重要度'''
+                next_outer = self.gain_granularity(reduct_add_ai) - self.gain_granularity(reduct_decision_add_ai)
+                max_sig_outer[a_i] = pre_outer - next_outer
+            '''选择 C - B 中最大的条件属性'''
+            max_sig_outer = sorted(max_sig_outer.items(), key=operator.itemgetter(1), reverse=True)
+            a0 = max_sig_outer[0][0]
+            '''该元素加入约简集(不含决策属性)'''
+            self.reduct_list.append(a0)
+            '''该元素加入约简集(含决策属性)'''
+            self.reduct_decision_list.append(a0)
+            '''原有的 C - B 中应该去除该条件属性'''
+            rules.remove(a0)
+        """第二部分"""
+        """第三部分"""
+        for a_i in self.reduct_list:
+            '''深拷贝后,从得到的副本上去除该条件属性'''
+            reduct_sub_ai = self.reduct_list[:]
+            reduct_decision_sub_ai = self.reduct_decision_list[:]
+            reduct_sub_ai.remove(a_i)
+            reduct_decision_sub_ai.remove(a_i)
+            '''差值在一定范围内认为是相等的'''
+            if abs(self.gain_granularity(reduct_sub_ai) - self.gain_granularity(
+                    reduct_decision_sub_ai) - sub) <= self.precision[2]:
+                '''该元素移除约简集(不含决策属性)'''
+                self.reduct_list.remove(a_i)
+                '''该元素移除约简集(含决策属性)'''
+                self.reduct_decision_list.remove(a_i)
+        """第三部分"""
 
-    def gainOuter(self, attr, j):
-        """
-        :param attr: 属性集
-        :param j: 第j个特征(属性)
-        :return: 
-        返回知识粒度
-        @self.gainKonwledge(attrInclude)
-        """
-        attrInclude = []
-        for i in range(self.rowsNum):
-            if len(attr[0]) == 0:
-                attrInclude.append(list(self.attrGranularity[i][j - 1:j]))
-            else:
-                attrInclude.append(attr[i] + (self.attrGranularity[i][j - 1:j]))
-        return self.gainKonwledge(attrInclude)
-
-    def gainBanda0(self, a0):
-        """
-        求约简集和第a0个属性的并集
-        :param a0: 第a0个特征(属性)
-        :return: NULL
-        """
-        for i in range(self.rowsNum):
-            self.attrB[i].append(self.attrGranularity[i][a0 - 1])
-
-    def gainBsubai(self, j):
-        """
-        求约简集和第a0个属性的并集
-        :param j: 第j个属性
-        :return: NULL
-        """
-        for i in range(self.rowsNum):
-            self.attrB[i].remove(self.attrGranularity[i][j - 1])
-
-    def multiReduct(self):
+    def gain_multi_reduct(self):
         """
         基于知识粒度的多粒度启发式约简算法
-        :return: NULL
+        :return:
         """
-        resultTemp = []
-        for k in range(0, self.granularity):
-            self.attrGranularity = []
-            self.yuejian = []
-            self.attrD = []
-            self.rule = []
-            self.attrB = []
-            if k != self.granularity - 1:
-                for i in range(k * self.rowsNum, (k + 1) * self.rowsNum):
-                    self.attrGranularity.append(self.attrTable[i])
-                    self.attrD.append(self.attrTable[i][self.listsNum - self.decisionNum:self.listsNum])
+        self.init_data()
+        objects_num = len(self.all_data)
+        divide = int(objects_num / self.granularity)
+        for index in range(self.granularity):
+            ''' index_list 每一个粒度下,数据集的下标'''
+            '''前 0 - self.granularity-2 次得到 divide 个元素,第 self.granularity-1 次得到剩余的元素'''
+            if index != self.granularity - 1:
+                index_list = list(range(index * divide, (index + 1) * divide))
             else:
-                for i in range(k * self.rowsNum, (k + 1) * self.rowsNum + self.remainder):
-                    self.attrGranularity.append(self.attrTable[i])
-                    self.attrD.append(self.attrTable[i][self.listsNum - self.decisionNum:self.listsNum])
-                self.rowsNum = self.rowsNum + self.remainder
-            self.gainReduct()
-            resultTemp.append(self.yuejian)
-        self.result = resultTemp[0]
-        for i in range(1, self.granularity):
-            self.result = list(set(self.result).union(set(resultTemp[i])))
+                index_list = list(range(index * divide, objects_num))
+            self.objects_num = len(index_list)
+            '''子信息系统'''
+            self.data = self.all_data.iloc[index_list, :]
+            '''子信息系统上约简'''
+            self.gain_reduct()
+            self.reduct_all_dict[index] = self.reduct_list
+            '''初始化
+            一次约简过程中,发生改变的成员是
+            self.reduct_decision_list = list()
+            self.reduct_list = list()
+            还原 self.reduct_list, self.reduct_decision_list'''
+            self.init_data()
+        '''合并'''
+        self.reduct_all_list = self.reduct_all_dict[0]
+        for index in range(1, self.granularity):
+            self.reduct_all_list = list(set(self.reduct_all_list).union(set(self.reduct_all_dict[index])))

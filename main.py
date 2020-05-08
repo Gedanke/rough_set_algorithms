@@ -34,10 +34,15 @@ def connect4_reduct():
     """
     # connect4_deal()
     # connect4_split()
-    path = "data_set/connect-4/connect-4_train1.csv"
-    r = Reduct(path)
-    print(r.decisions_data)
-    print(r.conditions_data)
+    path = "data_set/connect-4/connect-4_train.csv"
+    # r = Reduct(path)
+    # r.gain_reduct()
+    '''['A1', 'A19', 'A37', 'A7', 'A31', 'A14', 'A8', 'A25', 'A2', 'A13', 'A38', 'A20', 'A32', 'A26', 'A15', 'A9', 'A3', 'A21', 'A39', 'A33', 'A27', 'A16', 
+    'A10', 'A4', 'A22', 'A34', 'A28', 'A41']'''
+    # print(r.reduct_list)
+    rm = MReduct(path, 3)
+    rm.gain_multi_reduct()
+    print(rm.reduct_all_dict)
 
 
 """
@@ -45,4 +50,14 @@ def connect4_reduct():
 """
 
 if __name__ == "__main__":
-    connect4_reduct()
+    # connect4_reduct()
+    p = "data.csv"
+    r = MReduct(p)
+    r.gain_multi_reduct()
+    print(r.reduct_all_dict)
+    print(r.reduct_all_list)
+    # L = {0: ['b'], 1: ['f'], 2: ['a']}
+    # l = L[0]
+    # for i in range(1, 3):
+    #     l = list(set(l) ^ (set(L[i])))
+    # print(l)

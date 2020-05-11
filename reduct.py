@@ -5,13 +5,15 @@ import pandas
 
 
 class Reduct(object):
-    def __init__(self, file_path, decision_num=1, precision=[0, 1e-7, 0]):
+    def __init__(self, file_path, decision_num=1, precision=None):
         """
         基于知识粒度的经典启发式属性约简算法
         :param file_path: csv文件路径
         :param decision_num: 决策属性个数,默认为 1
         :param precision: 算法一中三个可能的参数(精度)
         """
+        if precision is None:
+            precision = [0, 1e-7, 0]
         '''信息系统,包含条件属性集和决策属性集'''
         self.data = pandas.read_csv(file_path)
         '''信息系统决策属性数'''

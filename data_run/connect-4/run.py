@@ -4,6 +4,7 @@ from reduct import Reduct
 from multiReduct import MReduct
 from DealData import DealData
 from Result import Result
+import time
 
 """
 n_entradas= 42
@@ -32,14 +33,25 @@ def deal():
 
 
 def split():
-    path = pre_path + "connect-4.csv"
+    train_path = pre_path + "connect-4.csv"
     rate = 0.8
     attributes_num = list()
-    Result(path, rate, attributes_num)
+    Result(train_path, rate, attributes_num)
 
 
-def reduct():
+def result():
     train_path = pre_path + "connect-4_train.csv"
+    t1 = time.time()
+    r = Reduct(train_path)
+    r.gain_reduct()
+    print("r:", time.time() - t1)
+    print(r.reduct_list)
+    """"""
+    t2 = time.time()
+    rm = MReduct(train_path, 3)
+    rm.gain_multi_reduct()
+    print("rm:", time.time() - t2)
+    print(rm.reduct_all_list)
 
 
 """
@@ -48,4 +60,5 @@ def reduct():
 
 if __name__ == "__main__":
     # deal()
-    split()
+    # split()
+    result()
